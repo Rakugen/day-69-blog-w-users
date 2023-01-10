@@ -60,6 +60,13 @@ def get_all_posts():
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
+        #If user's email already exists
+        if User.query.filter_by(email=form.email.data).first():
+            #Send flash messsage
+            flash("You've already signed up with that email, log in instead!")
+            #Redirect to /login route.
+            return redirect(url_for('login'))
+
         hash_salt_pw = generate_password_hash(
             form.password.data,
             method='pbkdf2:sha256',
@@ -84,8 +91,16 @@ def login():
         email = form.email.data
         password = form.password.data
         user = User.query.filter_by(email=email).first()
-        # User doesn't exist
-        if user and check_password_hash(user.password, password):
+        # User not found
+        if not user:
+            flash("That email does not exist, please try again")
+            return redirect(url_for("login"))
+        # Incorrect Password
+        elif not check_password_hash(user.password, password):
+            flash("Incorrect password, please try again")
+            return redirect(url_for("login"))
+
+        elif user and check_password_hash(user.password, password):
             login_user(user)
             return redirect(url_for('get_all_posts'))
 
@@ -94,6 +109,7 @@ def login():
 
 @app.route('/logout')
 def logout():
+    logout_user()
     return redirect(url_for('get_all_posts'))
 
 
