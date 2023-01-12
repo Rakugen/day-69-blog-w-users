@@ -1,3 +1,8 @@
+# Final revisit to the blog post project, this time with added users and comments functionality.
+# Users, Comments, and BlogPosts have a relationship as well as tables in the DB.
+# Gravatar is used here for user images used in the comments section.
+#
+
 from flask import Flask, render_template, redirect, url_for, flash, abort
 from flask_bootstrap import Bootstrap
 from flask_ckeditor import CKEditor
@@ -5,10 +10,9 @@ from datetime import date
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship
-from flask_login import UserMixin, login_user, LoginManager, login_required, current_user, logout_user
+from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 from flask_gravatar import Gravatar
-# from flask_wtf import FlaskForm
 from functools import wraps
 
 
@@ -30,16 +34,8 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-##CONFIGURE TABLES
+## CONFIGURE TABLES: BlogPost - User - Comment all have relationships with each other
 class BlogPost(db.Model):
-    # __tablename__ = "blog_posts"
-    # id = db.Column(db.Integer, primary_key=True)
-    # author = db.Column(db.String(250), nullable=False)
-    # title = db.Column(db.String(250), unique=True, nullable=False)
-    # subtitle = db.Column(db.String(250), nullable=False)
-    # date = db.Column(db.String(250), nullable=False)
-    # body = db.Column(db.Text, nullable=False)
-    # img_url = db.Column(db.String(250), nullable=False)
     __tablename__ = "blog_posts"
     id = db.Column(db.Integer, primary_key=True)
     author_id = db.Column(db.Integer, db.ForeignKey("users.id"))
@@ -52,11 +48,6 @@ class BlogPost(db.Model):
     comments = relationship("Comment", back_populates="parent_post")
 
 class User(UserMixin, db.Model):
-    # __tablename__ = "users"
-    # id = db.Column(db.Integer, primary_key=True)
-    # email = db.Column(db.String(100), unique=True)
-    # password = db.Column(db.String(100))
-    # name = db.Column(db.String(1000))
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(100), unique=True)
@@ -78,7 +69,7 @@ class Comment(db.Model):
 with app.app_context():
     db.create_all()
 
-
+# Decorator function used for decorating specific routes that are admin access only
 def admin_only(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -93,7 +84,9 @@ def get_all_posts():
     posts = BlogPost.query.all()
     return render_template("index.html", all_posts=posts, current_user=current_user)
 
-
+# Register route that will create a new user into db via html form.
+# werkzeug.security is used to generate a hashed password.
+# After successful register of a new user, they are automatically logged in.
 @app.route('/register', methods=["GET", "POST"])
 def register():
     form = RegisterForm()
@@ -102,7 +95,6 @@ def register():
         if User.query.filter_by(email=form.email.data).first():
             flash("You've already signed up with that email, log in instead!")
             return redirect(url_for('login'))
-
         hash_salt_pw = generate_password_hash(
             form.password.data,
             method='pbkdf2:sha256',
@@ -119,7 +111,8 @@ def register():
         return redirect(url_for("get_all_posts"))
     return render_template("register.html", form=form, current_user=current_user)
 
-
+# Login route that checks credentials and attempts to log-in a user. Flash messages are used to display
+# errors in validating credentials. login_user() is used here from LoginManager
 @app.route('/login', methods=["GET", "POST"])
 def login():
     form = LoginForm()
@@ -135,11 +128,9 @@ def login():
         elif not check_password_hash(user.password, password):
             flash("Incorrect password, please try again")
             return redirect(url_for("login"))
-
         elif user and check_password_hash(user.password, password):
             login_user(user)
             return redirect(url_for('get_all_posts'))
-
     return render_template("login.html", form=form, current_user=current_user)
 
 
@@ -148,22 +139,16 @@ def logout():
     logout_user()
     return redirect(url_for('get_all_posts'))
 
-
-# @app.route("/post/<int:post_id>")
-# def show_post(post_id):
-#     requested_post = BlogPost.query.get(post_id)
-#     return render_template("post.html", post=requested_post, current_user=current_user)
-
+# Route to show a specific post with an added comments section and comments form.
+# post.html page now has a section to loop through all comments.
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     form = CommentForm()
     requested_post = BlogPost.query.get(post_id)
-
     if form.validate_on_submit():
         if not current_user.is_authenticated:
             flash("You need to login or register to comment.")
             return redirect(url_for("login"))
-
         new_comment = Comment(
             text=form.comment_text.data,
             comment_author=current_user,
@@ -171,7 +156,6 @@ def show_post(post_id):
         )
         db.session.add(new_comment)
         db.session.commit()
-
     return render_template("post.html", post=requested_post, form=form, current_user=current_user)
 
 
@@ -184,7 +168,8 @@ def about():
 def contact():
     return render_template("contact.html", current_user=current_user)
 
-
+# Route to create a new post which will get added into the db. Utilizes WTForm and datetime
+# for a formatted date.
 @app.route("/new-post", methods=["GET", "POST"])
 @admin_only
 def add_new_post():
@@ -215,14 +200,7 @@ def edit_post(post_id):
         author=current_user,
         body=post.body
     )
-    # if edit_form.validate_on_submit():
-    #     post.title = edit_form.title.data
-    #     post.subtitle = edit_form.subtitle.data
-    #     post.img_url = edit_form.img_url.data
-    #     post.author = edit_form.author.data
-    #     post.body = edit_form.body.data
-    #     db.session.commit()
-    #     return redirect(url_for("show_post", post_id=post.id))
+
     if edit_form.validate_on_submit():
         post.title = edit_form.title.data
         post.subtitle = edit_form.subtitle.data
@@ -244,5 +222,4 @@ def delete_post(post_id):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
-    # app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
