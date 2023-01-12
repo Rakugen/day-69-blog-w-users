@@ -1,7 +1,6 @@
 # Final revisit to the blog post project, this time with added users and comments functionality.
 # Users, Comments, and BlogPosts have a relationship as well as tables in the DB.
 # Gravatar is used here for user images used in the comments section.
-#
 
 from flask import Flask, render_template, redirect, url_for, flash, abort
 from flask_bootstrap import Bootstrap
@@ -14,7 +13,6 @@ from flask_login import UserMixin, login_user, LoginManager, current_user, logou
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 from flask_gravatar import Gravatar
 from functools import wraps
-
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
@@ -188,7 +186,7 @@ def add_new_post():
         return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, current_user=current_user)
 
-
+# Admin only route with link only appearing for admins.
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
 @admin_only
 def edit_post(post_id):
@@ -200,7 +198,6 @@ def edit_post(post_id):
         author=current_user,
         body=post.body
     )
-
     if edit_form.validate_on_submit():
         post.title = edit_form.title.data
         post.subtitle = edit_form.subtitle.data
@@ -208,10 +205,9 @@ def edit_post(post_id):
         post.body = edit_form.body.data
         db.session.commit()
         return redirect(url_for("show_post", post_id=post.id))
-
     return render_template("make-post.html", form=edit_form, current_user=current_user)
 
-
+# Route to delete a specific post, from admin only link on index.html page
 @app.route("/delete/<int:post_id>")
 @admin_only
 def delete_post(post_id):
