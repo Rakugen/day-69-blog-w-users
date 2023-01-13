@@ -1,6 +1,7 @@
 # Final revisit to the blog post project, this time with added users and comments functionality.
 # Users, Comments, and BlogPosts have a relationship as well as tables in the DB.
 # Gravatar is used here for user images used in the comments section.
+import os
 
 from flask import Flask, render_template, redirect, url_for, flash, abort
 from flask_bootstrap import Bootstrap
@@ -16,7 +17,7 @@ from functools import wraps
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('day-69-blog-w-users-db', 'sqlite:///blog.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 ckeditor = CKEditor(app)
 gravatar = Gravatar(app, size=100, rating='g', default='retro', force_default=False, force_lower=False, use_ssl=False, base_url=None)
@@ -64,8 +65,8 @@ class Comment(db.Model):
     text = db.Column(db.Text, nullable=False)
 
 
-with app.app_context():
-    db.create_all()
+# with app.app_context():
+#     db.create_all()
 
 # Decorator function used for decorating specific routes that are admin access only
 def admin_only(f):
